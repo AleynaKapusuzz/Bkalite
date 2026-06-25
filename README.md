@@ -2,6 +2,18 @@
 
 Otomatik öğrenen YOLO v8 tabanlı görüntü kontrol sistemi. Kullanıcı onaylarıyla model kendini geliştiriyor.
 
+## 🛠️ Teknolojiler
+
+| Teknoloji | Ne İçin |
+|-----------|---------|
+| **YOLO v8** | Görüntüdeki objeler tespit etme (kan, morluk vb) |
+| **Flask** | Web sunucusu ve API sağlama |
+| **Python** | Backend ve model eğitimi |
+| **JavaScript** | Web arayüzü interaktifliği |
+| **HTML5/Canvas** | Tahminleri resme çizme |
+| **JSON** | Veri saklama (veritabanı yerine) |
+| **Threading** | Eğitimi arka planda çalıştırma (UI bloklanmaz) |
+
 ## 🎯 Ne Yapıyor?
 
 ```
@@ -189,8 +201,6 @@ python annotation_debug.py
 - **Threshold:** `INFER_CONF` değerini düşürürsen daha fazla kutu göreceksin (yanlış pozitif artar)
 
 ---
-
-**v2 - Gedik Piliç - 2025**
 
 ## 👨‍💼 Maintainer
 
