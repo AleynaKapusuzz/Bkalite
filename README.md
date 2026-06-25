@@ -1,204 +1,368 @@
-# B Kalite Kontrol Sistemi
+# 🩸 B Kalite Kontrol Sistemi v2
 
-Otomatik öğrenen YOLO v8 tabanlı görüntü kontrol sistemi. Kullanıcı onaylarıyla model kendini geliştiriyor.
-
-## 🛠️ Teknolojiler
-
-| Teknoloji | Ne İçin |
-|-----------|---------|
-| **YOLO v8** | Görüntüdeki objeler tespit etme (kan, morluk vb) |
-| **Flask** | Web sunucusu ve API sağlama |
-| **Python** | Backend ve model eğitimi |
-| **JavaScript** | Web arayüzü interaktifliği |
-| **HTML5/Canvas** | Tahminleri resme çizme |
-| **JSON** | Veri saklama (veritabanı yerine) |
-| **Threading** | Eğitimi arka planda çalıştırma (UI bloklanmaz) |
-
-## 🎯 Ne Yapıyor?
-
-```
-Yeni Resim → YOLO Tahmin → Web UI'de Göster → Kullanıcı Onayla/Reddet
-                                                        ↓
-                                          save1/ (eğitim)  save2/ (arşiv)
-                                                        ↓
-                                            500+ veri olunca Model Eğit
-                                                        ↓
-                                              best.pt Güncelle
-```
+Gedik Piliç pilav üreticiliği için **otomatik kan kalite kontrol sistemi**. YOLO v8 deep learning modeliyle pilav paketlerindeki kan (hemolitik) lekeleri tespit edip sınıflandırır. Sistem kullanıcı onayıyla otomatik olarak öğrenip (auto-learning) güncelleme yapar.
 
 ---
 
-## 📁 Dosya & Klasör Yapısı
+## 🎯 Proje Amacı
 
-### **Python Dosyaları**
+**Ne yapılmak istedi:**
+- Pilav paketlerine verilen kalite kontrol süreci otomatikleştirmek
+- Kan kontaminasyonu olan paketleri otomatik tespit etmek
+- Sistem verileriyle YOLO modelini sürekli eğiterek accuracy artırmak
 
-| Dosya | Görev |
-|-------|-------|
-| **app.py** | Flask sunucusu. ham/ izler → YOLO çalıştırır → API sağlar |
-| **trainer.py** | 30 saniye aralığında save1/ veri sayısını kontrol eder. 500+ olunca YOLO eğitim başlatır |
-| **bkalite_config.py** | **Merkezi ayarlar** - sınıf adları, threshold değerleri, eğitim parametreleri |
-| **annotation_debug.py** | Hata ayıklama - YOLO kutularını resme çizer, sorunlu açıklamaları raporlar |
-| **log_blood.py** | Loglama - debug mesajları dosyaya yaz |
-| **service_blood.py** | Windows NSSM servisi başlatıcı (opsiyonel) |
-
-### **Frontend Dosyaları**
-
-| Dosya | Görev |
-|-------|-------|
-| **index.html** | Ana arayüz - resimleri ve YOLO kutularını göster |
-| **app.js** | index.html'in JavaScript - kutulara drag/drop, onay/reddet |
-| **review.html** | Thumbnail önizleme sayfası (save1 ve save2 resimleri) |
-| **review.js** | review.html'in JavaScript |
-
-### **Çalışma Klasörleri**
-
-```
-proje/
-├── ham/                    # 📥 INPUT - Yeni resimler buraya konur
-│
-├── save1/                  # ✅ Onaylanan (EĞİTİME GİRER)
-│   ├── resimler/           #    PNG/JPG dosyaları
-│   └── txt/                #    YOLO format açıklamalar (0 0.45 0.52 0.15 0.20)
-│
-├── save2/                  # ❌ Reddedilen (sadece arşiv, eğitime girmez)
-│   └── resimler/
-│
-├── best/                   # 🤖 Model dosyaları
-│   └── best.pt             #    Aktif YOLO modeli
-│
-├── trained/                # 📊 Eğitim geçmişi
-│   ├── resimler/           #    Eğitimde kullanılan veriler
-│   └── txt/                #    YOLO açıklamaları
-│
-├── bkalite_config.py       # ⚙️ Ayarlar dosyası
-│   # CLASS_NAMES = ["kan"]                    # Sınıf adları
-│   # TRAIN_TRIGGER_SAVE1 = 500               # Eğitim tetik
-│   # INFER_CONF = 0.60                       # Tahmin kesinlik sınırı
-│   # (Yeni sınıf eklerken SADECE burası değiştirilir)
-│
-├── app.py                  # 🌐 Flask backend
-│   # - ham/ klasörünü izle
-│   # - YOLO tahminleri yap
-│   # - /api/* endpoint'leri sağla
-│
-├── trainer.py              # 🧠 Auto-trainer
-│   # - save1 veri sayısını kontrol et
-│   # - 500+ olunca YOLO eğit
-│   # - Kalite kontrol (eski model ile karşılaştır)
-│   # - İyi olmuşsa best.pt güncelle
-│
-└── data/                   # 💾 Sistem dosyaları
-    ├── db.json             #    Resim metadataları
-    ├── queue.json          #    İşlemde olan resimler
-    ├── image_hashes.json   #    Duplicate algılama (SHA256)
-    ├── training_logs.json  #    Eğitim geçmişi
-    └── log_blood.txt       #    Debug loglar
-```
+**Mevcut durumu:**
+- Manuel kontrol → YOLO otomatik tespit → Kullanıcı onayı → Otomatik model güncelleme döngüsü
 
 ---
 
-## 🚀 Başlangıç
+## 🛠️ Kullanılan Teknolojiler
 
-```bash
-# 1. En az bir best.pt modeli koy: best/ klasörüne
+| Teknoloji | Amaç |
+|-----------|------|
+| **Python 3.10+** | Backend ve ML işlemleri |
+| **Flask** | Web API sunucusu |
+| **YOLOv8 (Ultralytics)** | Kan tespit modeli |
+| **PIL/Pillow** | Görüntü işleme |
+| **HTML5 + CSS3** | Frontend arayüz |
+| **Vanilla JavaScript** | Frontend interaksiyonları |
+| **JSON** | Veri depolama (SQLite yok) |
+| **NSSM** | Windows servis yönetimi |
 
-# 2. Başlat
-python app.py
-```
+---
 
-**3. Tarayıcıda aç:**
+## 🌐 Erişim
+
+**Web Arayüzü:**
 ```
 http://yapayzeka:8503
 ```
-*veya*
-```
-http://localhost:8503
-```
 
-**4. ham/ klasörüne resim koy**
-- Sistem otomatik olarak görecek
-- YOLO çalıştıracak  
-- Web UI'de gösterecek
+**Bileşenler:**
+- `/` → Ana kontrol paneli (inference + onay)
+- `/review` → Arşiv tarama ve veri istatistikleri
 
 ---
 
-## ⚙️ Konfigürasyon
+## 📁 Klasör Yapısı
 
-**bkalite_config.py** dosyasında:
+```
+B_Kalite_Sistem/
+│
+├── ham/                          # 📥 Gelen ham görüntüler (izlenen input)
+│   └── [yeni resim ekleme noktası]
+│
+├── best/                         # 🤖 YOLO model dosyaları
+│   ├── best.pt                   # Aktif modelin ağırlıkları
+│   ├── best_v1.pt, best_v2.pt... # Model versiyonları (backup)
+│   └── *.yaml                    # Model konfigürasyon dosyaları
+│
+├── save1/                        # ✅ KAN VARSA (eğitime girer)
+│   ├── resimler/                 # [000001.png, 000002.png, ...]
+│   └── txt/                      # YOLO format etiketler [000001.txt, ...]
+│
+├── save2/                        # ❌ KAN YOKSA (sadece arşiv)
+│   └── resimler/                 # [istatistik ve geçmiş]
+│
+├── trained/                      # 📚 Eğitim veri seti (snapshot)
+│   ├── resimler/                 # [eğitilmiş tüm resimler]
+│   └── txt/                      # Karşılık gelen etiketler
+│
+├── data/                         # 💾 Sistem veritabanı ve loglar
+│   ├── db.json                   # İstatistikler ve meta
+│   ├── queue.json                # İşlenecek / onay bekleyen resimler
+│   ├── image_hashes.json         # Duplicate kontrol indexi
+│   ├── training_logs.json        # Eğitim geçmişi ve model metrikleri
+│   ├── log_blood.txt             # Debug logları
+│   └── annotation_debug/         # Görsel kontrol raporu
+│
+├── bkalite_config.py             # ⚙️ Merkezi ayar dosyası
+├── app.py                        # 🔧 Flask backend
+├── trainer.py                    # 🧠 Auto-learning trainer
+├── service_blood.py              # 🚀 NSSM servis başlatıcı
+├── log_blood.py                  # 📝 Loglama sistemi
+├── annotation_debug.py           # 🔍 Etiket kalite kontrol
+│
+├── index.html                    # 🖥️ Ana dashboard HTML
+├── app.js                        # ⚙️ Ana dashboard JavaScript
+├── review.html                   # 📊 Arşiv tarama sayfası
+├── review.js                     # 📊 Arşiv tarama JavaScript
+│
+└── README.md                     # Bu dosya
+```
+
+---
+
+## 📋 Dosya Açıklamaları
+
+### Backend (Python)
+
+| Dosya | Görev |
+|-------|-------|
+| **bkalite_config.py** | 🔑 **Merkezi ayarlar**. Class adları, model parametreleri, eğitim tetikleri. Başka dosyalar bunu import eder. |
+| **app.py** | 🔧 **Flask API sunucusu** (1377 satır). Ham klasörü izler, yeni görüntü gelince YOLO çalıştırır, JSON API sunar. |
+| **trainer.py** | 🧠 **Auto-Learning motor** (718 satır). 500 yeni resim → eğitim trigger, model versiyonlama, acceptance gate. |
+| **log_blood.py** | 📝 **Loglama**. Tüm olaylar data/log_blood.txt'ye yazılır (max 50k satır). |
+| **service_blood.py** | 🚀 **NSSM servis başlatıcı**. Windows Task Scheduler'dan başlatılır. |
+| **annotation_debug.py** | 🔍 **Kalite kontrol aracı**. save1/txt'deki YOLO kutularını resimlere çizer, sorunlu kutuları raporlar. |
+
+### Frontend (HTML/JS)
+
+| Dosya | Görev |
+|-------|-------|
+| **index.html** | 🖥️ **Ana arayüz** (1203 satır). Giriş ekranı, kontrol paneli, resim/kutu gösterimi, onay duyguları. |
+| **app.js** | ⚙️ **Frontend mantığı** (52 KB). Backend API çağrıları, kutu çizme, timer, live feed, localStorage. |
+| **review.html** | 📊 **Arşiv/İstatistik sayfası** (144 KB). save1 ve save2 geçmişini, model eğitim loglarını gösterir. |
+| **review.js** | 📊 **Arşiv mantığı** (20 KB). Filtreleme, pagination, veri görselleştirme. |
+
+---
+
+## 🔄 İş Akışı (Sistem Mantığı)
+
+### 1️⃣ Giriş (Input)
+```
+ham/ klasörüne yeni resim atıl
+        ↓
+app.py tarafından otomatik algılanır
+```
+
+### 2️⃣ Analiz
+```
+YOLO best.pt modelini çalıştır
+        ↓
+Kan (hemolitik leke) tespitini yap
+        ↓
+Kutuları (bbox) JSON'a serileştir
+```
+
+### 3️⃣ Arayüz Gösterimi
+```
+index.html'de resim + kutuları göster
+        ↓
+Kullanıcı kutuları kontrol et:
+  • ✅ Doğru     → save1 (eğitime girer)
+  • ❌ Yanlış    → sil / değiştir
+  • 📝 Resimleme → can, morluk, kemik açıkla
+        ↓
+Onayı gönder (POST /api/approve)
+```
+
+### 4️⃣ Depolama
+```
+save1/resimler/ + save1/txt/       (kan VAR → eğitim)
+     veya
+save2/resimler/                    (kan YOK → arşiv)
+```
+
+### 5️⃣ Auto-Learning (Otomatik Eğitim)
+```
+save1/resimler/ klasöründe 500+ resim
+        ↓
+trainer.py tarafından tespit edilir
+        ↓
+YOLO yolov8l.pt'den YOLO full retrain (250 epoch)
+        ↓
+Eski model vs yeni model karşılaştır
+        ↓
+Precision/Recall %5'ten fazla düşmediyse → best.pt güncelle
+        ↓
+Eğitim logu data/training_logs.json'a yazıl
+        ↓
+Arayüzde model durumu gösteril
+```
+
+---
+
+## ⚙️ Ayar Dosyası (bkalite_config.py)
 
 ```python
-CLASS_NAMES = ["kan"]              # Sınıf adları (yeni sınıf: ["kan", "morluk", "kemik"])
+CLASS_NAMES = ["kan"]                    # Sınıflar (gelecek: morluk, kemik)
+MIN_BOX_AREA_RATIO = 0.00001             # Minimum kutu boyutu
+MAX_BOX_AREA_RATIO = 0.18                # Maksimum kutu boyutu
+MAX_BOX_ASPECT_RATIO = 8.0               # Max genişlik/yükseklik oranı
 
-MIN_BOX_AREA_RATIO = 0.00001      # Min kutu boyutu
-MAX_BOX_AREA_RATIO = 0.18         # Max kutu boyutu
-INFER_CONF = 0.60                 # Tahmin confidence threshold
+TRAIN_TRIGGER_SAVE1 = 500                # Eğitim trigger: 500 yeni resim
+TRAIN_EPOCHS = 250                       # Eğitim dönem sayısı
+TRAIN_BATCH = 4                          # Batch boyutu
+TRAIN_IMGSZ = 1024                       # Model giriş boyutu
 
-TRAIN_TRIGGER_SAVE1 = 500         # Kaç yeni veri olunca eğitim başlasın
-TRAIN_EPOCHS = 250                # Eğitim tur sayısı
-TRAIN_BATCH = 4                   # Batch boyutu
-TRAIN_IMGSZ = 1024                # YOLO giriş boyutu
+INFER_CONF = 0.60                        # Tahmin güven eşiği
+INFER_IOU = 0.45                         # NMS IoU eşiği
+```
+
+**⚠️ ÖNEMLİ:** Yeni sınıf eklemek için **SADECE** `bkalite_config.py` düzenle!
+
+---
+
+## 🚀 Kurulum & Çalıştırma
+
+### Ön Koşullar
+```bash
+Python 3.10+
+CUDA 11.8+ (GPU varsa)
+```
+
+### Bağımlılıklar
+```bash
+pip install flask flask-cors ultralytics pillow pyyaml
+```
+
+### Başlatma
+
+**Geliştirme (Debug):**
+```bash
+python app.py
+# http://localhost:8503
 ```
 
 ---
 
-## 📊 Sistem Akışı
+## 📊 API Endpoints (Backend)
 
-1. **ham/** klasörüne resim konur
-2. **app.py** YOLO'yu çalıştırır → kutu tahminleri yapar
-3. Web UI'de kutular gösterilir
-4. Kullanıcı onaylar ✅ → **save1/** (eğitim verisi)
-5. Kullanıcı reddeder ❌ → **save2/** (arşiv)
-6. **trainer.py** 30 saniye aralığında kontrol eder:
-   - "500+ yeni veri var mı?" → Varsa **YOLO eğit**
-7. Yeni model eski modelden iyi midir? 
-   - Evet → **best.pt güncelle** ✅
-   - Hayır → Eski model kalsın ❌
-8. Döngü başa dön (yeni model ile tahmin yapılır)
-
----
-
-## 🛠️ Teknik
-
-- **AI:** YOLO v8 (Ultralytics)
-- **Backend:** Flask + CORS
-- **Frontend:** HTML5 + Vanilla JavaScript
-- **DB:** JSON (basit, şifre yok)
-- **Threading:** Arka plan eğitim (UI bloklanmaz)
+| Method | Endpoint | Açıklama |
+|--------|----------|----------|
+| **GET** | `/` | Ana arayüz (index.html) |
+| **GET** | `/review` | Arşiv arayüzü (review.html) |
+| **GET** | `/api/queue` | Onay bekleyen resimler |
+| **POST** | `/api/approve` | Kutuyu onayla → save1 veya save2 |
+| **POST** | `/api/delete` | Resmi sil |
+| **POST** | `/api/reprocess` | Resmi yeniden işle |
+| **GET** | `/api/stats` | İstatistikler |
+| **GET** | `/api/model_info` | Model durum, eğitim tarihi |
+| **GET** | `/api/training_logs` | Eğitim geçmişi |
 
 ---
 
-## 🔍 Hata Ayıklama
+## 🔍 Kalite Kontrol
 
-YOLO kutularındaki sorunları bulmak için:
+YOLO etiketlerinin hata kontrolü:
 
 ```bash
 python annotation_debug.py
 ```
 
-Çıktı: `data/annotation_debug/` klasöründe:
-- `image__OK.jpg` - sorun yok
-- `image__WARN.jpg` - uyarı var (çok büyük/küçük kutu vb)
-- `report.json` - detaylı rapor
+**Çıktı:**
+- `data/annotation_debug/` → Kutular çizilmiş resimler
+- `data/annotation_debug/report.json` → Hata raporu
+  - `bad_format` → Yanlış YOLO satırı
+  - `out_of_range` → [0,1] dışına çıkan koord
+  - `too_large` / `too_small` → Kutu boyut hataları
+  - `bad_aspect` → Genişlik/yükseklik oranı aşırı
 
 ---
 
-## 📝 API Endpoints
+## 📈 Veri İstatistikleri
 
-| Method | Endpoint | Açıklama |
-|--------|----------|----------|
-| GET | `/api/queue` | Onay bekleyen resimleri listele |
-| POST | `/api/save` | Onay/reddet kaydet |
-| GET | `/api/classes` | Sınıf listesi |
-| GET | `/api/training-status` | Eğitim durumu |
+**data/db.json** içinde tutulur:
+```json
+{
+  "total_processed": 1240,
+  "with_blood": 847,
+  "without_blood": 393,
+  "training_count": 3,
+  "latest_model_date": "2025-01-15T10:30:00",
+  "model_metrics": { "precision": 0.92, "recall": 0.89, "map50": 0.95 }
+}
+```
+
+**review.html** → Data sekmesi ile görselleştirme
 
 ---
 
-## 📌 Önemli Notlar
+## 🧠 Model Versiyonlama
 
-- **Yeni sınıf eklerken:** `bkalite_config.py`'deki `CLASS_NAMES` değiştir, tüm sistem bunu okuyor
-- **YOLO Format (save1/txt/):** `<class_id> <cx> <cy> <width> <height>` (koordinatlar 0-1 arası)
-- **Duplicate Kontrol:** Hash tabanlı (aynı resim 2 kez işlenmez)
-- **Threshold:** `INFER_CONF` değerini düşürürsen daha fazla kutu göreceksin (yanlış pozitif artar)
+Her başarılı eğitim yeni model oluşturur:
+```
+best/
+├── best.pt           # Aktif model
+├── best_v1.pt        # Eski versiyon (backup)
+├── best_v2.pt
+└── best_v3.pt
+```
+
+**Acceptance Gate:**
+```
+Yeni model
+    ↓
+Eski model metrikleriyle karşılaştır
+    ↓
+Precision/Recall/mAP50 > %5 düşüş?
+    ↓
+HAYIR → best.pt güncelle
+EVET  → Reddedildi, eski best.pt devam et
+```
+
+---
+
+## 📝 Log Dosyaları
+
+**data/log_blood.txt** (çalışma zamanı logları):
+```
+2025-01-15 10:20:30 - [SERVICE] B Kalite servisi baslatiliyor
+2025-01-15 10:20:31 - [WATCHER] 4 yeni görüntü algılandı
+2025-01-15 10:21:15 - [INFERENCE] img_001.png → 2 kutu tespit
+2025-01-15 10:21:20 - [APPROVE] Can detected → save1 kaydedildi
+...
+```
+
+**data/training_logs.json** (eğitim geçmişi):
+```json
+{
+  "trainings": [
+    {
+      "id": 1,
+      "started": "2025-01-10T14:00:00",
+      "status": "success",
+      "trained_images": 500,
+      "epochs": 250,
+      "metrics": {
+        "precision": 0.91,
+        "recall": 0.88,
+        "map50": 0.94
+      }
+    }
+  ]
+}
+```
+
+---
+
+## 🐛 Troubleshooting
+
+| Sorun | Çözüm |
+|-------|-------|
+| Ham klasörü izlenmiyor | `service_blood.py` çalışıyor mu? Log kontrol et. |
+| YOLO hata | `best/best.pt` var mı? Model path config kontrol et. |
+| Model eğitilmiyor | `save1/resimler/` 500+ resim var mı? `TRAIN_TRIGGER_SAVE1` config kontrol. |
+| Duplicate resimler | `data/image_hashes.json` sıfırla ve reprocess. |
+| API timeout | `INFER_IMGSZ=1024` GPU memory için azalt (512/768). |
+
+---
+
+## 📦 Deployment
+
+### Windows Üretim Sunucusu
+
+1. **Python yükle** (3.10+)
+2. **Klasör yapısını oluştur** (`ham/`, `best/`, `save1/`, vb)
+3. **Bağımlılık yükle:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. **NSSM servis kurulumu:**
+5. **Başlat:**
+   ```
+   http://yapayzeka:8503
+   ```
+
+---
+
+## 🔐 Güvenlik Notları
+
+- Flask `app.secret_key` güvenli string olarak değiştirilmeli (üretim)
+- Sadece lokal ağda (`yapayzeka`) çalışması istenir
+- Ham klasörü yazma yetkisine sahip bir kullanıcı run et
+- Dosya izinlerini sınırla (644 resim, 755 klasörler)
 
 ---
 
